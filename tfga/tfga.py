@@ -218,7 +218,7 @@ class GeometricAlgebra:
             blades set to `fill_value`
         """
         blade_indices = self.get_kind_blade_indices(kind)
-        mv = tf.fill([*batch_shape, len(blade_indices)], fill_value)
+        mv = tf.fill([*batch_shape, tf.shape(blade_indices)[0]], fill_value)
         return MultiVector(blade_values=mv, blade_indices=blade_indices, algebra=self)
 
     def as_mv(self, x: Any) -> MultiVector:

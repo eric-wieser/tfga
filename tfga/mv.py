@@ -154,7 +154,7 @@ class MultiVector:
     @property
     def scalar(self) -> tf.Tensor:
         """Scalar part of this multivector as `tf.Tensor`."""
-        return self.tensor("")
+        return self.tensor_of_kind("scalar")[..., 0] #self.tensor("")
 
     @property
     def scalar_mv(self) -> MultiVector:
@@ -248,13 +248,10 @@ class MultiVector:
             `MultiVector` divided by `other`
         """
         other = self.algebra.as_mv(other)
-
-        if other.is_pure_scalar:
+        assert_op = tf.Assert(other.is_pure_scalar, [other.blade_values, other.blade_indices])
+        with tf.control_dependencies([assert_op]):
             divisor = other.scalar
             return self.with_changes(blade_values=self.blade_values / divisor)
-
-        raise Exception(
-            "Division of two multi-vectors is ambiguous (left or right inverse?). Use a.inverse() * b or b * a.inverse() instead.")
 
     def inverse(self) -> MultiVector:
         """Returns the inverted multivector
@@ -266,10 +263,9 @@ class MultiVector:
         """
         rev_self = ~self
         divisor = self * rev_self
-        if not divisor.is_pure_scalar:
-            raise Exception(
-                "Can't invert multi-vector (inversion divisor V ~V not scalar: %s)." % divisor)
-        return rev_self / divisor
+        assert_op = tf.Assert(divisor.is_pure_scalar, [self.blade_values, self.blade_indices])
+        with tf.control_dependencies([assert_op]):
+            return rev_self / divisor
 
     def __mul__(self, other: Union[numbers.Number, MultiVector, tf.Tensor]) -> MultiVector:
         """Returns the geometric product.
@@ -608,13 +604,16 @@ class MultiVector:
             def _blade_value_repr(value, index):
                 blade_repr = get_blade_repr(self.algebra.blades[index])
                 return "%.2f*%s" % (value, blade_repr)
-
+            
+            """
             return "MultiVector[%s]" % " + ".join(
                 _blade_value_repr(value, index)
                 for value, index
                 in zip(self.blade_values, self.blade_indices)
                 if value != 0
             )
+            """
+            return "MultiVector[?]"
         else:
             return "MultiVector[batch_shape=%s, blades=[%s]]" % (self.batch_shape, ", ".join(get_blade_repr(self.algebra.blades[i]) for i in self.blade_indices))
 
